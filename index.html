@@ -4,184 +4,649 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Need for Speed: Most Wanted (2005)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* ── DESIGN TOKENS ─────────────────────────────────────────── */
     :root {
-      --bg: #0d1117;
-      --card: #161b22;
-      --text: #e6edf3;
-      --muted: #9ca3af;
-      --accent: #f59e0b;
-      --line: #30363d;
+      --black:        #121212;
+      --silver:       #8a9099;
+      --silver-light: #c4cad4;
+      --accent:       #E2A31E;
+      --accent-dim:   rgba(226,163,30,0.35);
+      --accent-glow:  rgba(226,163,30,0.55);
+      --panel:        rgba(10,8,5,0.82);
     }
 
-    * {
-      box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      background: #080503;
     }
 
     body {
-      margin: 0;
+      font-family: 'Impact', 'Arial Black', Arial, sans-serif;
+      color: var(--silver-light);
+      position: relative;
+    }
+
+    /* ── FIXED OVERLAYS (highest z) ────────────────────────────── */
+
+    /* Grain / noise */
+    .overlay-grain {
+      position: fixed; inset: 0; z-index: 200; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.04;
+      mix-blend-mode: overlay;
+    }
+
+    /* Vignette */
+    .overlay-vignette {
+      position: fixed; inset: 0; z-index: 199; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 28%, rgba(0,0,0,0.82) 100%);
+    }
+
+    /* Sepia / yellow atmosphere tint */
+    .overlay-sepia {
+      position: fixed; inset: 0; z-index: 198; pointer-events: none;
+      background: linear-gradient(155deg,
+        rgba(70,45,0,0.22) 0%,
+        rgba(100,65,0,0.12) 50%,
+        rgba(30,18,0,0.24) 100%);
+      mix-blend-mode: multiply;
+    }
+
+    /* CRT scanlines */
+    .overlay-scanlines {
+      position: fixed; inset: 0; z-index: 197; pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.045) 2px,
+        rgba(0,0,0,0.045) 4px
+      );
+    }
+
+    /* ── BACKGROUND ─────────────────────────────────────────────── */
+    #bg {
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        linear-gradient(to right,  rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.45) 42%, rgba(0,0,0,0.18) 100%),
+        linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.65) 100%),
+        radial-gradient(ellipse at 68% 46%, #1e1505 0%, #0d0a04 40%, #080503 80%);
+      filter: contrast(1.25) brightness(0.72) saturate(0.65);
+    }
+
+    /* BMW M3 GTR ghost silhouette (text art placeholder) */
+    .bmw-ghost {
+      position: fixed; right: -10px; bottom: 50px; z-index: 1;
+      font-size: 17vw; font-style: italic; font-weight: 900;
+      letter-spacing: -6px; color: transparent;
+      -webkit-text-stroke: 1px rgba(226,163,30,0.07);
+      text-transform: uppercase; white-space: nowrap;
+      pointer-events: none; user-select: none;
+      line-height: 1;
+    }
+
+    /* ── MAIN APP SHELL ─────────────────────────────────────────── */
+    #app {
+      position: relative; z-index: 10;
+      display: flex; flex-direction: column;
+      height: 100vh; width: 100vw;
+    }
+
+    /* ── TOP BAR ────────────────────────────────────────────────── */
+    #topbar {
+      display: flex; align-items: center;
+      padding: 14px 32px;
+      border-bottom: 1px solid rgba(226,163,30,0.22);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+      flex-shrink: 0;
+    }
+
+    .tb-brand-sub  { font-size: 0.62rem; font-style: italic; letter-spacing: 3px; color: var(--silver); text-transform: uppercase; }
+    .tb-brand-main { font-size: 1.15rem; font-style: italic; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; text-shadow: 0 0 18px var(--accent-glow); }
+    .tb-divider    { width: 1px; height: 22px; background: rgba(226,163,30,0.28); margin: 0 18px; flex-shrink: 0; }
+    .tb-city       { font-size: 0.62rem; font-style: italic; letter-spacing: 2px; color: var(--silver); opacity: 0.7; text-transform: uppercase; }
+
+    .heat-wrap { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+    .heat-lbl  { font-size: 0.52rem; letter-spacing: 2px; color: var(--silver); opacity: 0.55; margin-right: 6px; text-transform: uppercase; }
+    .heat-pip  {
+      width: 18px; height: 8px;
+      background: var(--accent); opacity: 0.22;
+      clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+    }
+    .heat-pip.on { opacity: 1; box-shadow: 0 0 7px var(--accent); }
+
+    /* ── BODY (sidebar + main) ──────────────────────────────────── */
+    #content { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── LEFT SIDEBAR ───────────────────────────────────────────── */
+    #sidebar {
+      width: 272px; min-width: 272px;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 18px 0;
+      position: relative;
+      flex-shrink: 0;
+    }
+    #sidebar::after {
+      content: '';
+      position: absolute; right: 0; top: 0; bottom: 0; width: 1px;
+      background: linear-gradient(to bottom, transparent, rgba(226,163,30,0.28), transparent);
+    }
+
+    .menu-label {
+      font-size: 0.58rem; letter-spacing: 4px; color: var(--accent);
+      text-transform: uppercase; padding: 0 26px; margin-bottom: 10px; opacity: 0.65;
+    }
+
+    .menu-item {
+      position: relative; display: flex; align-items: center;
+      padding: 9px 26px; margin: 2px 0;
+      font-size: 1.05rem; font-style: italic; font-weight: 900;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--silver); cursor: pointer;
+      overflow: hidden; user-select: none;
+      transition: color 0.14s, transform 0.14s;
+    }
+
+    /* slide-in background highlight */
+    .menu-item::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to right, rgba(226,163,30,0.16), transparent);
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+      opacity: 0;
+      transform: translateX(-110%);
+      transition: transform 0.22s ease, opacity 0.22s;
+    }
+    .menu-item:hover::before,
+    .menu-item.active::before { opacity: 1; transform: translateX(0); }
+
+    /* left accent bar */
+    .menu-item::after {
+      content: '';
+      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+      width: 3px; height: 0;
+      background: var(--accent); box-shadow: 0 0 8px var(--accent);
+      transition: height 0.14s;
+    }
+    .menu-item:hover::after,
+    .menu-item.active::after { height: 68%; }
+
+    .menu-item:hover { color: #fff; transform: translateX(7px); }
+    .menu-item.active { color: var(--accent); transform: translateX(7px); }
+
+    .item-num   { font-size: 0.58rem; color: var(--accent); margin-right: 8px; opacity: 0.68; letter-spacing: 1px; position: relative; z-index: 1; }
+    .item-label { position: relative; z-index: 1; }
+    .item-arrow {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      width: 0; height: 0;
+      border-style: solid; border-width: 5px 0 5px 8px;
+      border-color: transparent transparent transparent var(--accent);
+      opacity: 0; transition: opacity 0.14s;
+    }
+    .menu-item:hover .item-arrow,
+    .menu-item.active .item-arrow { opacity: 1; }
+
+    .menu-divider { height: 1px; background: linear-gradient(to right, rgba(226,163,30,0.18), transparent); margin: 7px 26px; }
+
+    /* Player status block */
+    .status-block { padding: 14px 26px; margin-top: 10px; }
+    .status-tag   { font-size: 0.55rem; letter-spacing: 3px; color: var(--accent); opacity: 0.58; text-transform: uppercase; margin-bottom: 7px; }
+    .status-rank  { font-size: 0.82rem; font-style: italic; font-weight: 900; color: var(--silver-light); letter-spacing: 1px; }
+    .status-bounty{ font-size: 0.62rem; color: var(--silver); margin-top: 3px; font-style: italic; letter-spacing: 1px; text-transform: uppercase; }
+    .progress-bar {
+      margin-top: 8px; height: 4px;
+      background: rgba(255,255,255,0.07); position: relative;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+    }
+    .progress-fill { height: 100%; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .progress-lbl  { font-size: 0.52rem; color: var(--silver); opacity: 0.48; margin-top: 3px; letter-spacing: 1px; text-transform: uppercase; font-style: italic; }
+
+    /* Glitch keyframe for menu items */
+    @keyframes glitch {
+      0%   { transform: translateX(7px); }
+      15%  { transform: translateX(5px) skewX(-3deg); }
+      30%  { transform: translateX(8px); }
+      45%  { transform: translateX(6px) skewX(2deg); }
+      100% { transform: translateX(7px); }
+    }
+    .menu-item:hover { animation: glitch 0.35s steps(1) 1; }
+
+    /* ── MAIN CONTENT ───────────────────────────────────────────── */
+    #main-content {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; padding: 22px 36px;
+      overflow-y: auto;
+    }
+
+    /* ── PRESENTATION CARD ──────────────────────────────────────── */
+    .pres-card {
+      position: relative;
+      background: rgba(10,8,5,0.80);
+      border: 1px solid rgba(226,163,30,0.20);
+      border-left: 3px solid var(--accent);
+      clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+      padding: 26px 30px 24px;
+      margin-bottom: 14px;
+      backdrop-filter: blur(5px) saturate(1.15);
+    }
+    /* inner grain */
+    .pres-card::before {
+      content: '';
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.022;
+      clip-path: inherit;
+    }
+
+    .card-tag {
+      font-size: 0.58rem; letter-spacing: 4px; color: var(--accent);
+      text-transform: uppercase; opacity: 0.8;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .card-tag::after { content: ''; flex: 1; height: 1px; background: linear-gradient(to right, rgba(226,163,30,0.38), transparent); }
+
+    .card-title {
+      font-size: 2.1rem; font-style: italic; font-weight: 900;
+      letter-spacing: 3px; text-transform: uppercase; color: #fff;
+      text-shadow: 0 0 28px rgba(226,163,30,0.38), 2px 2px 0 rgba(0,0,0,0.85);
+      line-height: 1.1; margin-bottom: 3px;
+    }
+    .card-title .hi { color: var(--accent); }
+
+    .card-sub {
+      font-size: 0.76rem; font-style: italic; letter-spacing: 3px;
+      color: var(--silver); text-transform: uppercase; margin-bottom: 16px;
+    }
+
+    .card-body {
       font-family: Arial, Helvetica, sans-serif;
-      background: linear-gradient(180deg, #05070b 0%, var(--bg) 100%);
-      color: var(--text);
-      line-height: 1.6;
+      font-size: 0.87rem; color: rgba(196,202,212,0.85); line-height: 1.66;
+      font-weight: normal; font-style: normal;
     }
+    .card-body .hi { color: var(--accent); font-weight: bold; }
 
-    .container {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 24px;
+    /* ── STAT GRID ──────────────────────────────────────────────── */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 9px; margin-top: 15px;
     }
-
-    header {
-      padding: 40px 24px 16px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(22, 27, 34, 0.65);
-      backdrop-filter: blur(3px);
+    .stat-item {
+      position: relative;
+      background: rgba(226,163,30,0.055);
+      border: 1px solid rgba(226,163,30,0.16);
+      border-top: 2px solid rgba(226,163,30,0.38);
+      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+      padding: 11px 13px;
+      transition: background 0.18s, border-color 0.18s;
     }
+    .stat-item:hover { background: rgba(226,163,30,0.11); border-color: rgba(226,163,30,0.32); }
+    .stat-lbl { font-size: 0.58rem; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; opacity: 0.78; font-family: 'Impact','Arial Black',Arial,sans-serif; }
+    .stat-val { font-size: 1.05rem; font-style: italic; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; font-family: 'Impact','Arial Black',Arial,sans-serif; }
 
-    h1 {
-      margin: 0;
-      font-size: 2.2rem;
-      letter-spacing: 0.4px;
-    }
-
-    .subtitle {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 1.05rem;
-    }
-
-    .badge {
-      display: inline-block;
-      margin-top: 14px;
+    /* ── BLACKLIST LIST ─────────────────────────────────────────── */
+    .bl-list { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+    .bl-entry {
+      display: flex; align-items: center; gap: 9px;
       padding: 6px 10px;
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      border-radius: 999px;
-      font-size: 0.86rem;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
+      background: rgba(0,0,0,0.38);
+      border-left: 2px solid rgba(226,163,30,0.18);
+      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+      cursor: pointer;
+      transition: background 0.14s, border-color 0.14s;
+    }
+    .bl-entry:hover { background: rgba(226,163,30,0.10); border-color: var(--accent); }
+    .bl-num  { font-size: 0.62rem; font-style: italic; color: var(--accent); font-weight: 900; min-width: 22px; }
+    .bl-name { font-size: 0.76rem; font-style: italic; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--silver-light); }
+    .bl-car  { margin-left: auto; font-size: 0.58rem; color: var(--silver); letter-spacing: 1px; text-transform: uppercase; font-family: Arial,sans-serif; }
+    .bl-dot  { width: 6px; height: 6px; background: #4ade80; clip-path: polygon(50% 0%,100% 50%,50% 100%,0% 50%); flex-shrink: 0; }
+    .bl-dot.defeated { background: rgba(226,163,30,0.40); }
+
+    /* ── TAB PANELS ─────────────────────────────────────────────── */
+    .tab-panel         { display: none; }
+    .tab-panel.active  { display: block; }
+
+    /* ── FOOTER ─────────────────────────────────────────────────── */
+    #footer {
+      display: flex; align-items: center;
+      padding: 10px 30px;
+      border-top: 1px solid rgba(226,163,30,0.14);
+      background: linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%);
+      gap: 18px; flex-shrink: 0;
     }
 
-    section {
-      margin-top: 24px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 20px;
+    .prompt-btn {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.7rem; font-style: italic;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--silver); cursor: pointer; user-select: none;
+      transition: color 0.14s;
+    }
+    .prompt-btn:hover { color: var(--accent); }
+
+    .prompt-key {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 4px;
+      background: rgba(226,163,30,0.12);
+      border: 1px solid rgba(226,163,30,0.38);
+      font-size: 0.68rem; font-weight: 900; color: var(--accent);
+      clip-path: polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px);
     }
 
-    h2 {
-      margin: 0 0 10px;
-      color: #f3f4f6;
-      font-size: 1.35rem;
+    .footer-right {
+      margin-left: auto;
+      font-size: 0.57rem; letter-spacing: 3px;
+      color: rgba(138,144,153,0.42); text-transform: uppercase; font-style: italic;
     }
 
-    ul {
-      margin: 8px 0 0;
-      padding-left: 20px;
-    }
-
-    li + li {
-      margin-top: 6px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 12px;
-      margin-top: 10px;
-    }
-
-    .stat {
-      border: 1px solid var(--line);
-      background: #11161e;
-      border-radius: 10px;
-      padding: 12px;
-    }
-
-    .stat strong {
-      display: block;
-      color: #f9fafb;
-      margin-bottom: 4px;
-    }
-
-    footer {
-      color: var(--muted);
-      text-align: center;
-      padding: 22px;
-      font-size: 0.9rem;
-    }
-
-    a {
-      color: #93c5fd;
-    }
+    /* ── SCROLLBAR ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.25); }
+    ::-webkit-scrollbar-thumb { background: var(--accent); }
   </style>
 </head>
 <body>
-  <header>
-    <div class="container">
-      <h1>Need for Speed: Most Wanted (2005)</h1>
-      <p class="subtitle">A fan-made overview of one of the most iconic arcade racing games ever released.</p>
-      <span class="badge">Released: November 2005</span>
-    </div>
-  </header>
 
-  <main class="container">
-    <section>
-      <h2>Why it still matters</h2>
-      <p>
-        Need for Speed: Most Wanted (2005) blended high-speed street racing, cinematic police chases,
-        and deep car customization into a memorable experience. Its Blacklist progression, gritty atmosphere,
-        and soundtrack helped define racing games of the era.
-      </p>
-    </section>
+  <!-- Fixed atmosphere overlays -->
+  <div class="overlay-grain"></div>
+  <div class="overlay-vignette"></div>
+  <div class="overlay-sepia"></div>
+  <div class="overlay-scanlines"></div>
 
-    <section>
-      <h2>Core gameplay highlights</h2>
-      <ul>
-        <li><strong>Blacklist system:</strong> Defeat 15 rival drivers to reclaim your status and your BMW M3 GTR.</li>
-        <li><strong>Police pursuit system:</strong> Escalating heat levels, roadblocks, spike strips, and helicopter support.</li>
-        <li><strong>Open-world exploration:</strong> Race and evade through the city of Rockport.</li>
-        <li><strong>Arcade handling:</strong> Fast, accessible driving with thrilling near-miss moments.</li>
-      </ul>
-    </section>
+  <!-- Background + BMW ghost -->
+  <div id="bg"></div>
+  <div class="bmw-ghost">BMW M3 GTR</div>
 
-    <section>
-      <h2>Features fans still praise</h2>
-      <div class="grid">
-        <div class="stat">
-          <strong>Car Customization</strong>
-          Visual upgrades, performance tuning, and style choices.
-        </div>
-        <div class="stat">
-          <strong>Career Progression</strong>
-          Milestones, bounty, race wins, and rival requirements.
-        </div>
-        <div class="stat">
-          <strong>Pursuit Breakers</strong>
-          Environment-based tactics for dramatic escapes.
-        </div>
-        <div class="stat">
-          <strong>Sound & Atmosphere</strong>
-          Distinct UI, gritty visuals, and energetic soundtrack.
-        </div>
+  <!-- ═══════════════ APP SHELL ═══════════════ -->
+  <div id="app">
+
+    <!-- TOP BAR -->
+    <div id="topbar">
+      <div style="display:flex;flex-direction:column;line-height:1.25;">
+        <span class="tb-brand-sub">Electronic Arts · Black Box</span>
+        <span class="tb-brand-main">Most Wanted</span>
       </div>
-    </section>
+      <div class="tb-divider"></div>
+      <span class="tb-city">Rockport City · Career Mode</span>
+      <div class="heat-wrap">
+        <span class="heat-lbl">Heat</span>
+        <div class="heat-pip on"></div>
+        <div class="heat-pip on"></div>
+        <div class="heat-pip on"></div>
+        <div class="heat-pip"></div>
+        <div class="heat-pip"></div>
+      </div>
+    </div>
 
-    <section>
-      <h2>Legacy</h2>
-      <p>
-        Many racing fans still consider Most Wanted (2005) the high point of the classic Need for Speed formula.
-        Its blend of style, progression, and intense pursuits continues to influence fan projects and modern
-        racing game discussions.
-      </p>
-    </section>
-  </main>
+    <!-- CONTENT AREA -->
+    <div id="content">
 
-  <footer>
-    Created as an informational fan page about Need for Speed: Most Wanted (2005).
-  </footer>
+      <!-- ─── LEFT SIDEBAR ─── -->
+      <nav id="sidebar">
+        <div class="menu-label">// Main Menu</div>
+
+        <div class="menu-item active" onclick="showTab('overview')">
+          <span class="item-num">01</span>
+          <span class="item-label">Overview</span>
+          <span class="item-arrow"></span>
+        </div>
+        <div class="menu-item" onclick="showTab('blacklist')">
+          <span class="item-num">02</span>
+          <span class="item-label">Blacklist</span>
+          <span class="item-arrow"></span>
+        </div>
+        <div class="menu-item" onclick="showTab('gameplay')">
+          <span class="item-num">03</span>
+          <span class="item-label">Gameplay</span>
+          <span class="item-arrow"></span>
+        </div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="showTab('features')">
+          <span class="item-num">04</span>
+          <span class="item-label">Features</span>
+          <span class="item-arrow"></span>
+        </div>
+        <div class="menu-item" onclick="showTab('legacy')">
+          <span class="item-num">05</span>
+          <span class="item-label">Legacy</span>
+          <span class="item-arrow"></span>
+        </div>
+        <div class="menu-divider"></div>
+
+        <!-- Player status -->
+        <div class="status-block">
+          <div class="status-tag">// Your Status</div>
+          <div class="status-rank">BLACKLIST: #15</div>
+          <div class="status-bounty">Bounty: $12,450</div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:8%"></div>
+          </div>
+          <div class="progress-lbl">Progress to Blacklist #14</div>
+        </div>
+      </nav>
+
+      <!-- ─── MAIN CONTENT ─── -->
+      <div id="main-content">
+
+        <!-- ── OVERVIEW ── -->
+        <div id="tab-overview" class="tab-panel active">
+          <div class="pres-card">
+            <div class="card-tag">// Fan Presentation · 2005</div>
+            <div class="card-title">Need for Speed<br><span class="hi">Most Wanted</span></div>
+            <div class="card-sub">The Blacklist Awaits · Rockport City</div>
+            <p class="card-body">
+              Need for Speed: Most Wanted (2005) is an open-world street racing game developed by EA Black Box.
+              You start at the bottom of the <span class="hi">Blacklist</span> — a roster of 15 of Rockport's
+              most notorious street racers — with a stolen BMW M3 GTR to reclaim. Your mission: beat every
+              rival, evade the police, and reclaim your place at the top.
+            </p>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-lbl">Released</div>
+                <div class="stat-val">Nov 2005</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Developer</div>
+                <div class="stat-val">EA Black Box</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Max Heat Level</div>
+                <div class="stat-val">Level 5</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Rivals</div>
+                <div class="stat-val">15 Racers</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BLACKLIST ── -->
+        <div id="tab-blacklist" class="tab-panel">
+          <div class="pres-card">
+            <div class="card-tag">// Most Wanted List · Rockport</div>
+            <div class="card-title">The <span class="hi">Blacklist</span></div>
+            <div class="card-sub">15 Rivals Stand Between You and the Top</div>
+            <div class="bl-list">
+              <div class="bl-entry"><span class="bl-num">#1</span><span class="bl-name">Razor</span><span class="bl-car">BMW M3 GTR</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#2</span><span class="bl-name">Bull</span><span class="bl-car">Lamborghini Murciélago</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#3</span><span class="bl-name">Ronnie</span><span class="bl-car">Porsche Carrera GT</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#4</span><span class="bl-name">JV</span><span class="bl-car">Lamborghini Gallardo</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#5</span><span class="bl-name">Webster</span><span class="bl-car">Mercedes SLR</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#6</span><span class="bl-name">Ming</span><span class="bl-car">Porsche 911 Turbo S</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#7</span><span class="bl-name">Kaze</span><span class="bl-car">Mercedes CLK 500</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#8</span><span class="bl-name">Big Lou</span><span class="bl-car">Pontiac GTO</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#9</span><span class="bl-name">Baron</span><span class="bl-car">Aston Martin DB9</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#10</span><span class="bl-name">Jewels</span><span class="bl-car">Ford GT</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#11</span><span class="bl-name">Izzy</span><span class="bl-car">Chevrolet Cobalt SS</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#12</span><span class="bl-name">Vic</span><span class="bl-car">Lotus Elise</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#13</span><span class="bl-name">Taz</span><span class="bl-car">Toyota Supra</span><div class="bl-dot"></div></div>
+              <div class="bl-entry"><span class="bl-num">#14</span><span class="bl-name">Sonny</span><span class="bl-car">Subaru Impreza WRX</span><div class="bl-dot defeated"></div></div>
+              <div class="bl-entry"><span class="bl-num">#15</span><span class="bl-name">Clarence</span><span class="bl-car">Ford Mustang GT</span><div class="bl-dot defeated"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── GAMEPLAY ── -->
+        <div id="tab-gameplay" class="tab-panel">
+          <div class="pres-card">
+            <div class="card-tag">// Core Systems</div>
+            <div class="card-title">How to Play <span class="hi">MW</span></div>
+            <div class="card-sub">Street Racing · Police Pursuits · Blacklist Challenges</div>
+            <p class="card-body">
+              Race through the streets of <span class="hi">Rockport City</span>, compete in circuit races,
+              sprint events, and drag races to earn milestones. Each Blacklist rival requires a set number
+              of race wins, bounty, and unique milestones to unlock their challenge race.
+            </p>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-lbl">Race Types</div>
+                <div class="stat-val">Circuit · Sprint · Drag</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Police Heat</div>
+                <div class="stat-val">5 Levels</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">City</div>
+                <div class="stat-val">Rockport</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Pursuit Breakers</div>
+                <div class="stat-val">40+</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── FEATURES ── -->
+        <div id="tab-features" class="tab-panel">
+          <div class="pres-card">
+            <div class="card-tag">// Key Features</div>
+            <div class="card-title">What Makes It <span class="hi">Iconic</span></div>
+            <div class="card-sub">The Formula That Defined a Generation</div>
+            <div class="stat-grid">
+              <div class="stat-item" style="grid-column:span 2;">
+                <div class="stat-lbl">Car Customization</div>
+                <div class="card-body" style="margin-top:4px;">Visual upgrades, performance tuning, body kits, vinyl wraps, and custom paint.</div>
+              </div>
+              <div class="stat-item" style="grid-column:span 2;">
+                <div class="stat-lbl">Police AI</div>
+                <div class="card-body" style="margin-top:4px;">Adaptive pursuit AI with roadblocks, spike strips, and helicopter support at Heat Level 5.</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Soundtrack</div>
+                <div class="stat-val">22 Tracks</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Cars</div>
+                <div class="stat-val">35 Vehicles</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── LEGACY ── -->
+        <div id="tab-legacy" class="tab-panel">
+          <div class="pres-card">
+            <div class="card-tag">// Cultural Impact</div>
+            <div class="card-title">The <span class="hi">Legacy</span></div>
+            <div class="card-sub">Still the Gold Standard for Street Racing Games</div>
+            <p class="card-body">
+              Many racing fans consider Most Wanted (2005) the high point of the classic Need for Speed formula.
+              Its fusion of <span class="hi">cinematic police pursuits</span>, deep customization, and a compelling
+              progression system through the Blacklist continues to inspire fan projects, modding communities,
+              and modern racing game designs.
+            </p>
+            <p class="card-body" style="margin-top:11px;">
+              The game's aesthetic — gritty urban environments, a pumping soundtrack, and iconic rival characters
+              like <span class="hi">Razor</span> — left a cultural mark that endures two decades later.
+            </p>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-lbl">Metacritic Score</div>
+                <div class="stat-val">89 / 100</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-lbl">Copies Sold</div>
+                <div class="stat-val">16 M+</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /#main-content -->
+    </div><!-- /#content -->
+
+    <!-- FOOTER -->
+    <div id="footer">
+      <div class="prompt-btn" onclick="navBack()">
+        <span class="prompt-key">Q</span>
+        <span>Back</span>
+      </div>
+      <div class="prompt-btn" onclick="selectActive()">
+        <span class="prompt-key">1</span>
+        <span>Select</span>
+      </div>
+      <div class="prompt-btn">
+        <span class="prompt-key">↑↓</span>
+        <span>Navigate</span>
+      </div>
+      <div class="prompt-btn">
+        <span class="prompt-key">ESC</span>
+        <span>Quit</span>
+      </div>
+      <div class="footer-right">NFS: Most Wanted · Fan Page · © EA Games 2005</div>
+    </div>
+
+  </div><!-- /#app -->
+
+  <script>
+    const menuItems = Array.from(document.querySelectorAll('.menu-item'));
+    const panels    = document.querySelectorAll('.tab-panel');
+
+    function showTab(name) {
+      panels.forEach(p => p.classList.remove('active'));
+      menuItems.forEach(m => m.classList.remove('active'));
+      const panel = document.getElementById('tab-' + name);
+      if (panel) panel.classList.add('active');
+      menuItems.forEach(m => {
+        const oc = m.getAttribute('onclick') || '';
+        if (oc.includes("'" + name + "'")) m.classList.add('active');
+      });
+    }
+
+    function navBack() {
+      const idx = menuItems.findIndex(i => i.classList.contains('active'));
+      if (idx > 0) menuItems[idx - 1].click();
+    }
+
+    function selectActive() {
+      const active = document.querySelector('.menu-item.active');
+      if (!active) return;
+      const orig = active.style.cssText;
+      active.style.color = '#fff';
+      active.style.textShadow = '0 0 18px rgba(226,163,30,0.9)';
+      setTimeout(() => { active.style.color = ''; active.style.textShadow = ''; }, 180);
+    }
+
+    document.addEventListener('keydown', e => {
+      const idx = menuItems.findIndex(i => i.classList.contains('active'));
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        menuItems[(idx + 1) % menuItems.length].click();
+      } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        menuItems[(idx - 1 + menuItems.length) % menuItems.length].click();
+      } else if (e.key === 'Enter' || e.key === '1') {
+        selectActive();
+      } else if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') {
+        navBack();
+      }
+    });
+  </script>
 </body>
 </html>
