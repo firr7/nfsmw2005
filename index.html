@@ -629,7 +629,6 @@
     function selectActive() {
       const active = document.querySelector('.menu-item.active');
       if (!active) return;
-      const orig = active.style.cssText;
       active.style.color = '#fff';
       active.style.textShadow = '0 0 18px rgba(226,163,30,0.9)';
       setTimeout(() => { active.style.color = ''; active.style.textShadow = ''; }, 180);
